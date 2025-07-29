@@ -1,121 +1,90 @@
 #!/bin/bash
 set -e
- 
-echo "[1] Đặt múi giờ, locale, hostname..."
+
+echo ">>> Setting timezone, locale..."
 ln -sf /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime
 hwclock --systohc
- 
-echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+
+echo ">>> Configuring locale..."
+sed -i 's/#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
 locale-gen
 echo "LANG=en_US.UTF-8" > /etc/locale.conf
-echo "hoang-pc" > /etc/hostname
- 
-echo "[2] Cài user..."
-useradd -m -G wheel,audio,video,network hoang
-echo "Đặt mật khẩu cho user hoang:"
-passwd hoang
-echo "Đặt mật khẩu root:"
-passwd
- 
-echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
- 
-echo "[3] Cài GRUB + theme đẹp..."
+echo "KEYMAP=us" > /etc/vconsole.conf
+
+echo ">>> Setting hostname..."
+echo "arch-hyper" > /etc/hostname
+cat >> /etc/hosts <<EOF
+127.0.0.1 localhost
+::1       localhost
+127.0.1.1 arch-hyper.localdomain arch-hyper
+EOF
+
+echo ">>> Installing essential packages..."
+pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet base-devel linux-headers reflector bluez bluez-utils cups openssh avahi xdg-user-dirs xdg-utils unzip p7zip lsb-release
+
+echo ">>> Enabling services..."
+systemctl enable NetworkManager bluetooth sshd cups avahi-daemon
+
+echo ">>> Installing microcode and bootloader..."
+pacman -S --noconfirm intel-ucode
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
-pacman -S --noconfirm grub-theme-vimix
-mkdir -p /boot/grub/themes
-cp -r /usr/share/grub/themes/Vimix /boot/grub/themes/
-echo 'GRUB_THEME="/boot/grub/themes/Vimix/theme.txt"' >> /etc/default/grub
-grub-mkconfig -o /boot/grub/grub.cfg
- 
-echo "[4] Cài đồ họa: Hyprland, drivers, Wayland tools..."
-pacman -S --noconfirm hyprland xdg-desktop-portal-hyprland \
-mesa vulkan-intel libva-intel-driver libva-utils \
-nvidia nvidia-utils nvidia-settings nvidia-dkms \
-waybar rofi alacritty kitty dolphin neofetch \
-ttf-jetbrains-mono ttf-firacode-nerd ttf-font-awesome \
-sddm qt5-graphicaleffects qt5-quickcontrols2 qt5-svg qt5-quickcontrols \
-qt6-wayland qt6-svg qt6-quickcontrols2 qt6-graphicaleffects \
-zsh zsh-autosuggestions zsh-syntax-highlighting \
-pipewire wireplumber pamixer pavucontrol \
-grim slurp wl-clipboard brightnessctl \
-network-manager-applet blueman
- 
-echo "[5] Cài theme SDDM..."
-git clone --depth=1 https://github.com/vinceliuice/SDDM-Catppuccin.git /tmp/sddm-theme
-/tmp/sddm-theme/install.sh --theme mocha
-mkdir -p /etc/sddm.conf.d
-echo -e "[Theme]\nCurrent=catppuccin-mocha" > /etc/sddm.conf.d/theme.conf
- 
-echo "[6] Bật dịch vụ..."
-systemctl enable NetworkManager
+
+echo ">>> Creating user and setting password..."
+useradd -mG wheel,audio,video,storage,optical,lp,input yourname
+echo "Set password for root:"
+passwd
+echo "Set password for yourname:"
+passwd yourname
+
+echo ">>> Allowing wheel sudo..."
+sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+
+echo ">>> Installing Hyprland and GUI stack..."
+pacman -S --noconfirm hyprland xdg-desktop-portal-hyprland kitty waybar dmenu dolphin thunar thunar-volman xwayland qt5-wayland qt6-wayland
+
+echo ">>> Installing Display Manager (SDDM)..."
+pacman -S --noconfirm sddm sddm-kcm qt5-quickcontrols qt5-graphicaleffects
 systemctl enable sddm
- 
-echo "[7] Auto login SDDM vào user hoang và Hyprland..."
-echo -e "[Autologin]\nUser=hoang\nSession=hyprland" > /etc/sddm.conf.d/autologin.conf
- 
-echo "[8] Cài Powerlevel10k..."
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git /home/hoang/.p10k
-echo 'ZSH_THEME="powerlevel10k/powerlevel10k"' >> /home/hoang/.zshrc
-echo 'source ~/.p10k/powerlevel10k.zsh-theme' >> /home/hoang/.zshrc
-echo 'source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh' >> /home/hoang/.zshrc
-echo 'source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh' >> /home/hoang/.zshrc
-chsh -s /bin/zsh hoang
-chown -R hoang:hoang /home/hoang
- 
-echo "[9] Tạo config Hyprland..."
-mkdir -p /home/hoang/.config/hypr
-cat <<EOF > /home/hoang/.config/hypr/hyprland.conf
-exec-once = waybar & blueman-applet & nm-applet & pavucontrol & dolphin & alacritty
- 
-monitor=,preferred,auto,1
- 
-input {
-    kb_layout = us
-    follow_mouse = 1
-}
- 
-general {
-    gaps_in = 5
-    gaps_out = 10
-    border_size = 2
-    col.active_border = rgba(33ccffee) rgba(00ff99ee) 45deg
-    col.inactive_border = rgba(595959aa)
-    layout = dwindle
-}
- 
-decoration {
-    rounding = 10
-    blur {
-        enabled = true
-        size = 5
-        passes = 3
-    }
-    drop_shadow = true
-    shadow_range = 4
-    shadow_render_power = 3
-    col.shadow = rgba(00000044)
-}
- 
-animations {
-    enabled = true
-    bezier = myBezier, 0.05, 0.9, 0.1, 1.05
-    animation = windows, 1, 7, myBezier
-    animation = fade, 1, 7, default
-    animation = workspaces, 1, 6, default
-}
- 
-bind = $mainMod, RETURN, exec, alacritty
-bind = $mainMod, Q, killactive
-bind = $mainMod, E, exec, dolphin
-bind = $mainMod, V, togglefloating
-bind = $mainMod, SPACE, exec, rofi -show drun
- 
-bind = , XF86AudioRaiseVolume, exec, pamixer -i 5
-bind = , XF86AudioLowerVolume, exec, pamixer -d 5
-bind = , XF86AudioMute, exec, pamixer -t
+
+echo ">>> Installing SDDM theme..."
+git clone https://github.com/vinceliuice/Sweet.git /tmp/sddm-theme
+cp -r /tmp/sddm-theme/SDDM/Sugar-Light /usr/share/sddm/themes/
+sed -i 's/^Current=.*/Current=Sugar-Light/' /etc/sddm.conf
+
+echo ">>> Installing ZSH + Powerlevel10k..."
+pacman -S --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git /usr/share/zsh-theme-powerlevel10k
+echo 'source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme' >> /etc/zsh/zshrc
+chsh -s /bin/zsh yourname
+
+echo ">>> Installing PipeWire & Volume controls..."
+pacman -S --noconfirm pipewire pipewire-pulse wireplumber pavucontrol
+systemctl enable --user pipewire wireplumber
+
+echo ">>> Installing Chrome, IntelliJ, VSCode via flatpak..."
+pacman -S --noconfirm flatpak
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak install -y flathub com.google.Chrome com.jetbrains.IntelliJ-IDEA-Ultimate com.visualstudio.code
+
+echo ">>> Installing Vietnamese Input (IBus Bamboo)..."
+pacman -S --noconfirm ibus ibus-bamboo
+echo 'export GTK_IM_MODULE=ibus' >> /etc/environment
+echo 'export QT_IM_MODULE=ibus' >> /etc/environment
+echo 'export XMODIFIERS=@im=ibus' >> /etc/environment
+systemctl enable --user ibus
+
+echo ">>> Copying Hyprland config..."
+mkdir -p /home/yourname/.config/hypr
+cp -r /etc/skel/.config/hypr/* /home/yourname/.config/hypr/
+chown -R yourname:yourname /home/yourname/.config
+
+echo ">>> Setup auto-login for SDDM..."
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/autologin.conf <<EOF
+[Autologin]
+User=yourname
+Session=hyprland
 EOF
- 
-chown -R hoang:hoang /home/hoang/.config
- 
-echo "✅ DONE! Giờ bạn có thể thoát chroot và reboot!"
+
+echo ">>> Done! You can now reboot."
