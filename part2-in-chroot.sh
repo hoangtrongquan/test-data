@@ -1,33 +1,5 @@
-#!/bin/bash
-set -e
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
 
-echo ">>> Setting timezone, locale..."
-ln -sf /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime
-hwclock --systohc
-
-echo ">>> Configuring locale..."
-sed -i 's/#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
-locale-gen
-echo "LANG=en_US.UTF-8" > /etc/locale.conf
-echo "KEYMAP=us" > /etc/vconsole.conf
-
-echo ">>> Setting hostname..."
-echo "arch-hyper" > /etc/hostname
-cat >> /etc/hosts <<EOF
-127.0.0.1 localhost
-::1       localhost
-127.0.1.1 arch-hyper.localdomain arch-hyper
-EOF
-
-echo ">>> Installing essential packages..."
-pacman -Sy --noconfirm grub efibootmgr networkmanager network-manager-applet base-devel linux-headers reflector bluez bluez-utils cups openssh avahi xdg-user-dirs xdg-utils unzip p7zip lsb-release
-
-echo ">>> Enabling services..."
-systemctl enable NetworkManager bluetooth sshd cups avahi-daemon
-
-echo ">>> Installing microcode and bootloader..."
-pacman -S --noconfirm intel-ucode
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 
 echo ">>> Creating user and setting password..."
