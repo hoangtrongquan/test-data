@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-USERNAME="trongquan"
+USERNAME="hoangquan"
 HOSTNAME="arch-hyperland"
 LOCALE="vi_VN.UTF-8"
 TIMEZONE="Asia/Ho_Chi_Minh"
@@ -27,8 +27,8 @@ grub-mkconfig -o /boot/grub/grub.cfg
 echo "[3] Enable mạng + tạo user..."
 systemctl enable NetworkManager
 useradd -mG wheel $USERNAME
-echo "root:123456" | chpasswd
-echo "$USERNAME:123456" | chpasswd
+echo "root:hoangquan" | chpasswd
+echo "$USERNAME:hoangquan" | chpasswd
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
 echo "[4] Bật multilib..."

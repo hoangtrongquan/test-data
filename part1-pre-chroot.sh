@@ -1,33 +1,41 @@
 #!/bin/bash
 set -e
-
-# ⚠️ Thay đổi nếu cần
+ 
 DISK="/dev/nvme0n1"
-EFI_PART="${DISK}p1"
-ROOT_PART="${DISK}p2"
-
-echo "[1] Phân vùng đĩa..."
+EFI="${DISK}p1"
+ROOT="${DISK}p2"
+ 
+echo "⚠️ WARNING: Sẽ xoá toàn bộ dữ liệu trên $DISK sau 5 giây..."
+sleep 5
+ 
+echo "[1] Xoá sạch dữ liệu, phân vùng, bootloader cũ..."
+wipefs -af $DISK
+dd if=/dev/zero of=$DISK bs=1M count=100 status=progress
 parted -s $DISK mklabel gpt
+ 
+echo "[2] Tạo phân vùng EFI + ROOT..."
 parted -s $DISK mkpart ESP fat32 1MiB 513MiB
 parted -s $DISK set 1 esp on
 parted -s $DISK mkpart primary ext4 513MiB 100%
-
-echo "[2] Định dạng phân vùng..."
-mkfs.fat -F32 $EFI_PART
-mkfs.ext4 $ROOT_PART
-
-echo "[3] Mount phân vùng..."
-mount $ROOT_PART /mnt
+ 
+echo "[3] Định dạng các phân vùng..."
+mkfs.fat -F32 $EFI
+mkfs.ext4 $ROOT
+ 
+echo "[4] Mount phân vùng..."
+mount $ROOT /mnt
 mkdir -p /mnt/boot
-mount $EFI_PART /mnt/boot
-
-echo "[4] Cài hệ thống cơ bản..."
-pacstrap -K /mnt base linux linux-firmware nano sudo networkmanager grub efibootmgr
-
-echo "[5] Tạo fstab và chroot..."
+mount $EFI /mnt/boot
+ 
+echo "[5] Cài base system + intel microcode..."
+pacstrap -K /mnt base linux linux-firmware intel-ucode \
+sudo networkmanager grub efibootmgr nano
+ 
+echo "[6] Tạo fstab và chép script phần 2 vào chroot..."
 genfstab -U /mnt >> /mnt/etc/fstab
 cp part2-in-chroot.sh /mnt/root/
 chmod +x /mnt/root/part2-in-chroot.sh
-
-echo "➡️ Sẵn sàng! Gõ lệnh sau để vào chroot và tiếp tục:"
+ 
+echo "✅ Hoàn tất phần 1!"
+echo "➡️ Tiếp tục bằng lệnh:"
 echo "arch-chroot /mnt && bash /root/part2-in-chroot.sh"
